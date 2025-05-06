@@ -1,4 +1,5 @@
 import streamlit as st
+from components import render_header, render_footer
 
 # --- Custom CSS for style ---
 st.markdown("""
@@ -22,6 +23,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+render_header()
+
 # --- Investment Parameters ---
 st.subheader("💰 Investment Constraints")
 
@@ -37,19 +40,17 @@ if fee_box:
     per_share_fees = st.number_input("Fee per Share ($)", min_value=0.0, step=0.01, value=0.00)
 st.markdown("---")
 
-# st.write(len(st.session_state.tickers))
-
-if len(st.session_state.tickers) == 10:
-    st.write("Since you have only chosen 10 stocks, your portfilio will include all 10. Add more stocks and PortfolioGo will automatically decide the best to use!")
+if len(st.session_state.ticker_file) == 10:
+    st.write("Since there are only 10 stocks to choose from, your portfilio will include all 10. Alternatively, you may add more stocks and PortfolioGo will automatically decide the best to use!")
     if st.button("Go back to add more stocks!"):
         st.switch_page('stocks.py')
 else:
     fixed = st.checkbox("I want to fix the number of stocks in my portfolio", value=False)
     if fixed:
         st.write("How many companies do you want to hold in your portfolio? Pick a number and we'll figure out the best ones and how many shares to buy!")
-        num_stocks = st.number_input("Number of Stocks", min_value=10, max_value=len(st.session_state.tickers), value=10)
+        num_stocks = st.number_input("Number of Stocks", min_value=10, max_value=len(st.session_state.ticker_file), value=10)
     else:
-        stock_count = len(st.session_state.tickers)
+        stock_count = len(st.session_state.ticker_file)
 
         # Edge case: Only 11 stocks
         if stock_count == 11:
@@ -85,7 +86,7 @@ if st.button("✅ Proceed to Optimization"):
         st.session_state.fee_per_share = 0.0
 
     # Save stock count preferences
-    if len(st.session_state.tickers) == 10:
+    if len(st.session_state.ticker_file) == 10:
         st.session_state.min_stocks = 10
         st.session_state.max_stocks = 10
     elif fixed:
@@ -97,3 +98,5 @@ if st.button("✅ Proceed to Optimization"):
 
     st.success("Running optimization (backend logic goes here)...")
     st.switch_page('result.py')
+
+render_footer()

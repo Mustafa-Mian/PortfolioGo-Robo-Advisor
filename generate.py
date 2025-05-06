@@ -2,17 +2,23 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 import helpers as hp
+import streamlit as st
 
 def clean_data(tickers):
     tickers.drop_duplicates(inplace=True)
     
+    if 0 in tickers.columns:
+        tickers = tickers.rename(columns={0: 'name'})
+    if 'name' not in tickers.columns:
+        raise ValueError("Expected a 'name' column in the tickers DataFrame.")
+        
     tickers['base_name'] = tickers['name'].str.replace(r'\.TO$', '', regex=True)
     tickers = tickers.drop_duplicates(subset='base_name')
     tickers = tickers.drop(columns=['base_name'])
 
     filtered_stocks = pd.DataFrame()
     start_date = "2023-10-01"
-    end_date = "2024-09-30"
+    end_date = '2025-03-01'
     for ticker in tickers['name']:
         try:
             stock = yf.Ticker(ticker)
@@ -46,7 +52,7 @@ def rank(ticker_file):
         cur_ticker = ticker_file['Ticker'].iloc[i]
         cur_stock = yf.Ticker(cur_ticker)
         start_date = '2023-11-14'
-        end_date = '2024-11-23'
+        end_date = '2025-03-01'
         cur_stock_hist = cur_stock.history(start=start_date, end=end_date)['Close']
 
         # Getting important statistics per stock
@@ -103,19 +109,21 @@ def rank(ticker_file):
 
 
 """"""
-def make_portfolios(stock_details, budget, flat_fee, fee_per_share,):
-    # Dictionary of best portfolio with 12, 13, ... n stocks
+def make_portfolios(stock_details, budget, flat_fee, fee_per_share, min_stocks, max_stocks):
+    # Dictionary of best portfolio with 10, 11, ... n stocks
     strongest_portfolios = {}
 
     # Dictionary containing the daily value of the strongest_portfolios, backtested on a year's worth of data.
     back_testing_portfolios = {}
 
-    for n in range(12, 25):  # Loop through the number of stocks in the portfolio
+    risk_free_rate = hp.get_rf()
+
+    for n in range(min_stocks, max_stocks):  # Loop through the number of stocks in the portfolio
         best_portfolio = None # DataFrame of best portfolio n stocks
         best_portfolio_backtesting = None
         best_invest_coeff = float('-inf') # Setting this value to an infinitely small number to begin
 
-        for j in range(1000):  # Create 1000 portfolios with different weights for the current number of stocks
+        for j in range(500):  # Create 500 portfolios with different weights for the current number of stocks
             stocks = stock_details[:n]
             max_weight = 15
             min_weight = 100 / (2 * n)
@@ -188,20 +196,20 @@ def make_portfolios(stock_details, budget, flat_fee, fee_per_share,):
             daily_returns = portfolio_values['Portfolio'].pct_change().dropna()
             avg_daily_return = daily_returns.mean()
             std_daily_return = daily_returns.std()
-            sharpe_ratio = (avg_daily_return - hp.risk_free_rate) / std_daily_return if std_daily_return > 0 else 0
+            sharpe_ratio = (avg_daily_return - risk_free_rate) / std_daily_return if std_daily_return > 0 else 0
             
             # Calculate portfolio beta
             portfolio_beta = current_portfolio['weighted beta'].sum()
             
             # Compute investment coefficient
-            investment_coefficient = (20 * portfolio_beta) + (60 * portfolio_return) + (20 * sharpe_ratio)
+            investment_coefficient = (20 * portfolio_beta) + (50 * avg_daily_return) + (30 * sharpe_ratio)
             
             # Check if this portfolio is the best for this number of stocks
             if investment_coefficient > best_invest_coeff:
                 best_invest_coeff = investment_coefficient
                 best_portfolio = current_portfolio.copy()
                 best_portfolio_backtesting = portfolio_values.copy()
-                best_portfolio["Portfolio Return"] = portfolio_return
+                best_portfolio["Portfolio Return"] = daily_returns
                 best_portfolio["Sharpe Ratio"] = sharpe_ratio
                 best_portfolio["Investment Coefficient"] = investment_coefficient
 
@@ -226,16 +234,15 @@ def make_portfolios(stock_details, budget, flat_fee, fee_per_share,):
 
     # Graphing the performance of the strongest portfolios and the benchmark
     
-    return strongest_portfolios
+    return strongest_portfolios, back_testing_portfolios
 
 """"""
 
-def start(investment_size, flat_fee, fee_per_share, tickers):
-    tickers = clean_data(tickers)
+def start(investment_size, min_stocks, max_stocks, flat_fee, fee_per_share, tickers):
     weighted_list, stock_data = rank(tickers)
 
     best_stocks = []
-    for i in range(24):
+    for i in range(max_stocks):
         best_stocks += [weighted_list[i]["name"]]
     filtered_stocks = []
     for stock in best_stocks:
@@ -245,40 +252,11 @@ def start(investment_size, flat_fee, fee_per_share, tickers):
     for stock in filtered_stocks:
         stock["price_history"].index = stock["price_history"].index.strftime('%Y-%m-%d')
 
-    best_portfolios = make_portfolios(filtered_stocks, investment_size, flat_fee, fee_per_share)
+    best_portfolios, back_testing_portfolios = make_portfolios(filtered_stocks, investment_size, flat_fee, fee_per_share, min_stocks, max_stocks)
 
-    best_port = pd.DataFrame()
-    best_investment_coeff = 0
-    for i in range(12, 25):
-        cur_portfolio = best_portfolios[i]
-        cur_investment_coeff = cur_portfolio['Investment Coefficient'].iloc[0]
+    return best_portfolios, back_testing_portfolios
 
-        if cur_investment_coeff > best_investment_coeff:
-            best_investment_coeff = cur_investment_coeff
-            best_port = cur_portfolio
-    
-    Portfolio_Final = pd.DataFrame()
-    for i in range(len(best_port) - 1):
-        new_row = {
-            'Ticker': best_port["Name"].iloc[i],
-            'Price': best_port["price"].iloc[i],
-            'Currency': 'CAD',
-            'Shares': best_port["shares"].iloc[i],
-            'Value': best_port["spent"].iloc[i] - best_port["transaction fees"].iloc[i],
-            'Weight': best_port["weight"].iloc[i],
-        }
-        Portfolio_Final = pd.concat([Portfolio_Final, pd.DataFrame(new_row, index=[0])], ignore_index=True)
-
-    Portfolio_Final.index = Portfolio_Final.index + 1
-    total_weight = Portfolio_Final["Weight"].sum()
-    total_spent_on_shares = Portfolio_Final["Value"].sum()
-    total_spent_with_fees = best_port["spent"].iloc[-1]
-    print("The total weight adds up to: ", total_weight, "%", sep='')
-    print("The total spent without fees adds up to: $", total_spent_on_shares, sep='')
-    print("The total spent with fees adds up to: $", total_spent_with_fees, sep='')
-    print()
-    print(Portfolio_Final)
-
-def get_name(ticker):
+@st.cache_data
+def get_name_cached(ticker):
     stock = yf.Ticker(ticker)
-    return stock.info['longName']
+    return stock.info.get('longName', "Unknown")

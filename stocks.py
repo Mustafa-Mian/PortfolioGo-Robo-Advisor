@@ -2,8 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import generate as gen
-
-#st.title("Welcome to PortfoliGo!")
+from components import render_header, render_footer
 
 # --- Custom CSS for style ---
 st.markdown("""
@@ -32,16 +31,42 @@ if "tickers" not in st.session_state:
     st.session_state.tickers = []
 if "names" not in st.session_state:
     st.session_state.names = []
+if "use_predefined" not in st.session_state:
+    st.session_state.use_predefined = False
+if "fixed_tickers" not in st.session_state:
+    st.session_state.fixed_tickers = ['AAPL', 'MFC', 'SHOP', 'RY', 'NKE', 'MSFT', 'PG', 'NVDA', 'F', 'PFE', 'Afg', 'GOLD', 'BMO', 'SQ', 'TD', 'RCI', 'T', 'JPM', 'ENB', 'YO', 'BA', 'LLY', 'META', 'SPOT']
+if "fixed_names" not in st.session_state:
+    st.session_state.fixed_names = ['Apple Inc.', 'Manulife Financial Corporation', 'Shopify Inc.', 'Royal Bank of Canada', 'NIKE, Inc.', 'Microsoft Corporation', 'The Procter & Gamble Company', 'NVIDIA Corporation', 'Ford Motor Company', 'Pfizer Inc.', 'American Financial Group, Inc.', 'Barrick Gold Corporation', 'Bank of Montreal', 'Unknown', 'The Toronto-Dominion Bank', 'Rogers Communications Inc.', 'AT&T Inc.', 'JPMorgan Chase & Co.', 'Enbridge Inc.', 'Unknown', 'The Boeing Company', 'Eli Lilly and Company', 'Meta Platforms, Inc.', 'Spotify Technology S.A.']
+
+st.logo(
+    'assets/PortfolioGo_Logo.png',
+    size="large",
+    icon_image='assets/PortfolioGo_Logo.png'
+)
+
+render_header()
 
 # --- Header ---
-st.title("📊 Welcome to PortfolioGo!")
-st.write("Please enter the stocks and constraints for your custom-built portfolio. Let's get started!")
-st.write("Please enter the base form of tickers (e.g. AAPL, SHOP). Do not include the exchange suffix (e.g. .TO, .NS).")
+st.subheader("Welcome to PortfolioGo!", divider='grey')
+container = st.container(border=True)
+container.write("Our goal is to make you a strong, investment-worthy portfolio. You provide the stocks, we'll handle the analysis.")
+container.write('Please enter the stocks and constraints for your custom-built portfolio.')
+container.badge("Lets go!", icon=":material/rocket_launch:", color="green")
 
-if "tickers" in st.session_state and len(st.session_state.tickers) < 9:
-    st.error("You must add a minumun of 10 stocks to proceed.")
-else:
-    st.success("Great! You can now proceed to the next step.")
+use_predefined_now = st.checkbox(
+    "Can't think of enough stocks? Click here and we'll use a pre-defined set to show you how PortfolioGo works. (Note selecting this option will overwrite any previously written tickers)",
+    value=st.session_state.use_predefined
+)
+
+if use_predefined_now and not st.session_state.use_predefined:
+    st.session_state.tickers = st.session_state.fixed_tickers.copy()
+    st.session_state.names = st.session_state.fixed_names.copy()
+    st.session_state.use_predefined = True
+elif not use_predefined_now and st.session_state.use_predefined:
+    st.session_state.tickers = []
+    st.session_state.names = []
+    st.session_state.use_predefined = False
+
 
 # --- Ticker Input ---
 with st.form("add_ticker_form", clear_on_submit=True):
@@ -65,35 +90,28 @@ with st.form("add_ticker_form", clear_on_submit=True):
         if clean_ticker not in st.session_state.tickers and proceed:
             st.session_state.tickers.append(clean_ticker)
             try:
-                name = gen.get_name(clean_ticker)
+                name = gen.get_name_cached(clean_ticker)
                 st.session_state.names.append(name)
             except Exception as e:
                 st.session_state.names.append("Unknown")
                 st.warning(f"Could not retrieve name for {clean_ticker}. This stock may be removed when creating your portfolio.")
 
-
 # --- Display Ticker Table ---
 st.subheader("📋 Your Selected Tickers")
+if st.session_state.use_predefined:
+    st.write("Some of these tickers may represent unlisted/non-existent companies. That's okay! The goal is to show you how PortfolioGo works and filters out these stocks when creating your portfolio.")
+
 if st.session_state.tickers:
     st.dataframe(pd.DataFrame({"Ticker": st.session_state.tickers, "Name": st.session_state.names}), use_container_width=True)
 else:
     st.info("No tickers added yet. Add some to get started!")
 
 # --- Continue Button ---
-st.markdown("---")
-if "tickers" in st.session_state and len(st.session_state.tickers) > 9:
-    if st.button("✅ Proceed to Investment Parameters"):
-        st.switch_page('param.py')
-
-"""
-investment_size = 1000000
-min_stocks = 12
-max_stocks = 24
-flat_fee = 3.95
-fee_per_share = 0.001
-
-ticker_file = pd.read_csv('Tickers.csv', header=None)
-ticker_file.rename(columns={0: 'name'}, inplace=True)
-
-gen.start(investment_size, max_stocks, flat_fee, fee_per_share, ticker_file)
-"""
+if len(st.session_state.tickers) < 10:
+    st.error("You must add a minimum of 10 stocks to proceed.")
+else:
+    st.success("Great! You can now proceed to the next step.")
+    if st.button("✅ Review provided stocks"):
+        st.switch_page('clean.py')
+    
+render_footer()

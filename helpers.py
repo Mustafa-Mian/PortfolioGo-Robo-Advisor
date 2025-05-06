@@ -9,13 +9,11 @@ def get_rf():
     """
     # Defining the ticker for 3-month US government debt
     debt_ticker = '^IRX'
-    start_date = '2024-11-22'
-    end_date = '2024-11-23'
 
     # Fetch historical data
     us_debt = yf.Ticker(debt_ticker)
 
-    # Print the most recent closing value
+    # Get the most recent closing value
     risk_free_rate = us_debt.fast_info.last_price
     risk_free_rate /= 100
 
@@ -25,7 +23,7 @@ def get_exchange_rate():
     cadusd = yf.Ticker('CADUSD=x')
     # Will edit these later
     start_date = '2023-11-14'
-    end_date = '2024-11-23'
+    end_date = '2025-03-01'
 
     cadusd_history = cadusd.history(start=start_date, end=end_date)['Close']
     cadusd_history.index = cadusd_history.index.strftime('%Y-%m-%d')
@@ -36,7 +34,7 @@ def get_benchmark_index():
     TSX_index = yf.Ticker('^GSPTSE')
     SP_index = yf.Ticker('^GSPC')
     start_date = '2023-11-14'
-    end_date = '2024-11-23'
+    end_date = '2025-03-01'
 
     TSX_index_hist = TSX_index.history(start=start_date, end=end_date)['Close']
     TSX_index_hist.index = TSX_index_hist.index.strftime('%Y-%m-%d')
@@ -47,7 +45,7 @@ def get_benchmark_index():
 
     indices = pd.DataFrame()
     indices['SP Index'] = SP_index_hist
-    indices['TSX Index'] = TSX_index_hist
+    indices['TSX Index (USD)'] = TSX_index_hist
     return indices
 
 def getBeta(cur_ticker):
@@ -55,7 +53,7 @@ def getBeta(cur_ticker):
 
     # Will edit these later
     start_date = '2023-11-14'
-    end_date = '2024-11-23'
+    end_date = '2025-03-01'
 
     cur_stock_hist = cur_stock.history(start=start_date, end=end_date)
     cur_stock_hist.index = cur_stock_hist.index.strftime('%Y-%m-%d')
@@ -72,7 +70,7 @@ def getBeta(cur_ticker):
     SP_var = daily_returns['SP Index'].var()
     SP_beta = daily_returns.cov() / SP_var
     currency = cur_stock.fast_info.currency
-    todays_price = prices[cur_ticker].iloc[-1]
+    todays_price = cur_stock.fast_info.last_price
 
     if currency == 'CAD':
         exchange = yf.Ticker('CADUSD=x').fast_info.last_price
@@ -85,7 +83,7 @@ def getGrowth(cur_ticker):
     # Fetch data for current stock
     cur_stock = yf.Ticker(cur_ticker)
     start_date = '2023-11-14'
-    end_date = '2024-11-23'
+    end_date = '2025-03-01'
     cur_stock_hist = cur_stock.history(start=start_date, end=end_date)
 
     prices = pd.DataFrame()
@@ -98,7 +96,7 @@ def getGrowth(cur_ticker):
 
 def getVolatility(cur_ticker):
     start_date = '2023-11-14'
-    end_date = '2024-11-23'
+    end_date = '2025-03-01'
     stock_data = yf.Ticker(cur_ticker).history(start=start_date, end=end_date)
     stock_data['Daily Return'] = stock_data['Close'].pct_change(fill_method=None).dropna()
     
@@ -129,3 +127,31 @@ def generate_numbers(n, min_value, max_value, total_sum):
 
     return x
 
+def get_best_port(best_portfolios, max_stocks, min_stocks):
+    best_port = pd.DataFrame()
+    best_investment_coeff = float('-inf')
+    best_index = -1
+    for i in range(min_stocks, max_stocks):
+        cur_portfolio = best_portfolios[i]
+        cur_investment_coeff = cur_portfolio['Investment Coefficient'].iloc[0]
+
+        if cur_investment_coeff > best_investment_coeff:
+            best_investment_coeff = cur_investment_coeff
+            best_port = cur_portfolio
+            best_index = i
+    
+    Portfolio_Final = pd.DataFrame()
+    for i in range(len(best_port) - 1):
+        new_row = {
+            'Ticker': best_port["Name"].iloc[i],
+            'Price': best_port["price"].iloc[i],
+            'Currency': 'USD',
+            'Shares': best_port["shares"].iloc[i],
+            'Value': best_port["spent"].iloc[i] - best_port["transaction fees"].iloc[i],
+            'Weight': best_port["weight"].iloc[i],
+        }
+        Portfolio_Final = pd.concat([Portfolio_Final, pd.DataFrame(new_row, index=[0])], ignore_index=True)
+
+    Portfolio_Final.index = Portfolio_Final.index + 1
+
+    return Portfolio_Final, best_index
