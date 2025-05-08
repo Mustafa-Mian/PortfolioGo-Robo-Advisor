@@ -1,4 +1,4 @@
-# PortfoliGo - Your Robo-Advisor
+# PortfolioGo - Your Robo-Advisor
 
 PortfolioGo! is a robo-advisor designed to assist users in simulating and optimizing investment portfolios. It provides tools for portfolio creation, backtesting, and optimization using **real-time** financial data.
 
