@@ -2,6 +2,8 @@
 
 PortfolioGo! is a robo-advisor designed to assist users in simulating and optimizing investment portfolios. It provides tools for portfolio creation, backtesting, and optimization using **real-time** financial data.
 
+TRY IT HERE: https://portfoliogo.streamlit.app
+
 ## Features
 
 - **Portfolio Simulation**: Create and simulate portfolios based on user-defined constraints.
@@ -22,7 +24,7 @@ PortfolioGo! is a robo-advisor designed to assist users in simulating and optimi
 - **`components.py`**: Contains reusable UI components like headers and footers.
 
 ## Usage
-Head to [LINK] and give it a try! No accounts, payments, or waiting required.
+Head to https://portfoliogo.streamlit.app and give it a try! No accounts, payments, or waiting required.
 
 **NOTE:** Occasionaly, the yfinance library (which is used in the back-end to fetch stock data) experiences issues which result in the program becoming unresponsive. This is an unfortunate consequnce of using real-time data and we will always try to minimize disruption on our end.
 
