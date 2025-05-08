@@ -38,12 +38,6 @@ if "fixed_tickers" not in st.session_state:
 if "fixed_names" not in st.session_state:
     st.session_state.fixed_names = ['Apple Inc.', 'Manulife Financial Corporation', 'Shopify Inc.', 'Royal Bank of Canada', 'NIKE, Inc.', 'Microsoft Corporation', 'The Procter & Gamble Company', 'NVIDIA Corporation', 'Ford Motor Company', 'Pfizer Inc.', 'American Financial Group, Inc.', 'Barrick Gold Corporation', 'Bank of Montreal', 'Unknown', 'The Toronto-Dominion Bank', 'Rogers Communications Inc.', 'AT&T Inc.', 'JPMorgan Chase & Co.', 'Enbridge Inc.', 'Unknown', 'The Boeing Company', 'Eli Lilly and Company', 'Meta Platforms, Inc.', 'Spotify Technology S.A.']
 
-st.logo(
-    'assets/PortfolioGo_Logo.png',
-    size="large",
-    icon_image='assets/PortfolioGo_Logo.png'
-)
-
 render_header()
 
 # --- Header ---
@@ -72,7 +66,7 @@ elif not use_predefined_now and st.session_state.use_predefined:
 with st.form("add_ticker_form", clear_on_submit=True):
     col1, col2 = st.columns([3, 1])
     with col1:
-        new_ticker = st.text_input("Enter a stock ticker you like (e.g. AAPL, TSLA)", key="ticker_input")
+        new_ticker = st.text_input("Enter the ticker for a stock you like (e.g. AAPL, NKE):", key="ticker_input")
     with col2:
         submitted = st.form_submit_button("Add Ticker")
     
@@ -80,7 +74,7 @@ with st.form("add_ticker_form", clear_on_submit=True):
         proceed = True
         clean_ticker = new_ticker.upper().strip().upper()
         if not clean_ticker.isalpha():
-            st.error("Please enter a valid ticker symbol (letters only).")
+            st.error("Please enter a valid ticker symbol (letters only). Unfortunately, numbers and special characters are not allowed. We understand this might mean leaving out certain exchanges, and are working to improve this in the future.")
             proceed = False
         elif clean_ticker in st.session_state.tickers:
             st.warning(f"{clean_ticker} is already in your list.")
