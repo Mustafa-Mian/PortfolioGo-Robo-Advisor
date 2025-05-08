@@ -116,14 +116,14 @@ def make_portfolios(stock_details, budget, flat_fee, fee_per_share, min_stocks, 
     # Dictionary containing the daily value of the strongest_portfolios, backtested on a year's worth of data.
     back_testing_portfolios = {}
 
-    risk_free_rate = hp.get_rf()
+    risk_free_rate, annualized_rf = hp.get_rf()
 
     for n in range(min_stocks, max_stocks):  # Loop through the number of stocks in the portfolio
-        best_portfolio = None # DataFrame of best portfolio n stocks
+        best_portfolio = None # DataFrame of best portfolio with n stocks
         best_portfolio_backtesting = None
         best_invest_coeff = float('-inf') # Setting this value to an infinitely small number to begin
 
-        for j in range(500):  # Create 500 portfolios with different weights for the current number of stocks
+        for j in range(500):  # Create 1000 portfolios with different weights for the current number of stocks
             stocks = stock_details[:n]
             max_weight = 15
             min_weight = 100 / (2 * n)
@@ -187,17 +187,13 @@ def make_portfolios(stock_details, budget, flat_fee, fee_per_share, min_stocks, 
             # Compute portfolio total value
             portfolio_values['Portfolio'] = portfolio_values.sum(axis=1)
             
-            # Calculate portfolio return from first day to final day when backtested on about a years worth of data
-            portfolio_return = (
-                portfolio_values['Portfolio'].iloc[-1] - portfolio_values['Portfolio'].iloc[0]
-            ) / portfolio_values['Portfolio'].iloc[0]
-            
             # Calculate portfolio daily returns and Sharpe ratio
-            daily_returns = portfolio_values['Portfolio'].pct_change().dropna()
+            daily_returns = portfolio_values['Portfolio'].ffill().pct_change().dropna()
             avg_daily_return = daily_returns.mean()
             std_daily_return = daily_returns.std()
             sharpe_ratio = (avg_daily_return - risk_free_rate) / std_daily_return if std_daily_return > 0 else 0
-            
+            sharpe_ratio = sharpe_ratio * np.sqrt(252) # Annualizing
+            annualized_return = (1 + avg_daily_return) ** 252 - 1
             # Calculate portfolio beta
             portfolio_beta = current_portfolio['weighted beta'].sum()
             
@@ -209,7 +205,7 @@ def make_portfolios(stock_details, budget, flat_fee, fee_per_share, min_stocks, 
                 best_invest_coeff = investment_coefficient
                 best_portfolio = current_portfolio.copy()
                 best_portfolio_backtesting = portfolio_values.copy()
-                best_portfolio["Portfolio Return"] = daily_returns
+                best_portfolio["Portfolio Return"] = annualized_return
                 best_portfolio["Sharpe Ratio"] = sharpe_ratio
                 best_portfolio["Investment Coefficient"] = investment_coefficient
 
@@ -254,6 +250,141 @@ def start(investment_size, min_stocks, max_stocks, flat_fee, fee_per_share, tick
 
     best_portfolios, back_testing_portfolios = make_portfolios(filtered_stocks, investment_size, flat_fee, fee_per_share, min_stocks, max_stocks)
 
+    return best_portfolios, back_testing_portfolios
+
+def make_fixed_portfolios(stock_details, budget, flat_fee, fee_per_share, num_stocks):
+    # Dictionary of best portfolio with n stocks
+    strongest_portfolios = {}
+    # Dictionary containing the daily value of the strongest_portfolios, backtested on a year's worth of data.
+    back_testing_portfolios = {}
+    risk_free_rate, annualized_rf = hp.get_rf()
+    best_portfolio = None # DataFrame of best portfolio n stocks
+    best_portfolio_backtesting = None
+    best_invest_coeff = float('-inf')
+
+    for j in range(1000):  # Create 1000 portfolios with different weights for the current number of stocks
+        stocks = stock_details[:num_stocks]
+        max_weight = 15
+        min_weight = 100 / (2 * num_stocks)
+        generate = True
+        
+        # Generate valid weights for the portfolio
+        while generate:
+            weights = hp.generate_numbers(num_stocks, min_weight, max_weight, 100)
+            if all(min_weight <= weight <= max_weight for weight in weights):
+                generate = False
+        
+        weights.sort(reverse=True)
+
+        current_portfolio = pd.DataFrame()
+        fees_spent = 0
+        total_spent = 0
+
+        # Create a dataframe for daily portfolio value calculation
+        portfolio_values = pd.DataFrame()
+        
+        for i in range(len(stocks)):
+            stock_weight = weights[i]
+            money_allocated = budget * (stock_weight / 100)  # Allocate money based on weight
+            
+            # Deduct the flat fee initially to estimate spendable money
+            money_for_stock = money_allocated - flat_fee
+            
+            if money_for_stock < 0:
+                shares = 0
+                transaction_fees = 0
+            else:
+                shares = money_for_stock / stocks[i]["price"]  # Calculate shares
+                variable_fee = shares * fee_per_share
+                transaction_fees = min(flat_fee, variable_fee)  # Use the smaller fee
+                
+                # Adjust the number of shares based on fees
+                money_for_shares = money_allocated - transaction_fees
+                shares = money_for_shares / stocks[i]["price"]
+                actual_spent = shares * stocks[i]["price"] + transaction_fees
+                
+                # Update total spent and fees
+                total_spent += actual_spent
+                fees_spent += transaction_fees
+            
+            # Append stock details to the current portfolio
+            new_row = {
+                'Name': stocks[i]["name"],
+                'weight': weights[i],
+                'shares': shares,
+                'price': stocks[i]["price"],
+                'transaction fees': transaction_fees,
+                'spent': actual_spent,
+                'weighted beta': stocks[i]['beta'] * (weights[i] / 100)
+            }
+            current_portfolio = pd.concat([current_portfolio, pd.DataFrame(new_row, index=[0])], ignore_index=True)
+            
+            # Add stock's daily value (shares * daily price) to the portfolio_values dataframe
+            stock_values = stocks[i]["price_history"] * shares
+            portfolio_values[stocks[i]["name"]] = stock_values
+        
+        # Compute portfolio total value
+        portfolio_values['Portfolio'] = portfolio_values.sum(axis=1)
+        
+        daily_returns = portfolio_values['Portfolio'].ffill().pct_change().dropna()
+        avg_daily_return = daily_returns.mean()
+        std_daily_return = daily_returns.std()
+        sharpe_ratio = (avg_daily_return - risk_free_rate) / std_daily_return if std_daily_return > 0 else 0
+        sharpe_ratio = sharpe_ratio * np.sqrt(252) # Annualizing
+        annualized_return = (1 + avg_daily_return) ** 252 - 1
+
+        # Calculate portfolio beta
+        portfolio_beta = current_portfolio['weighted beta'].sum()
+        
+        # Compute investment coefficient
+        investment_coefficient = (20 * portfolio_beta) + (50 * avg_daily_return) + (30 * sharpe_ratio)
+        
+        # Check if this portfolio is the best for this number of stocks
+        if investment_coefficient > best_invest_coeff:
+            best_invest_coeff = investment_coefficient
+            best_portfolio = current_portfolio.copy()
+            best_portfolio_backtesting = portfolio_values.copy()
+            best_portfolio["Portfolio Return"] = annualized_return
+            best_portfolio["Sharpe Ratio"] = sharpe_ratio
+            best_portfolio["Investment Coefficient"] = investment_coefficient
+
+        # Store the best portfolio for this number of stocks
+        strongest_portfolios[num_stocks] = best_portfolio
+        back_testing_portfolios[num_stocks] = best_portfolio_backtesting
+        
+        # Add a summary row to the best portfolio
+        final_row = {
+            'Name': 'Total',
+            'weight': best_portfolio['weight'].sum(),
+            'shares': best_portfolio['shares'].sum(),
+            'price': best_portfolio['price'].sum(),
+            'transaction fees': best_portfolio['transaction fees'].sum(),
+            'spent': best_portfolio['spent'].sum(),
+            'weighted beta': portfolio_beta,
+            'Portfolio Return': best_portfolio["Portfolio Return"].iloc[0],
+            'Sharpe Ratio': best_portfolio["Sharpe Ratio"].iloc[0],
+            'Investment Coefficient': best_invest_coeff
+        }
+        strongest_portfolios[num_stocks] = pd.concat([best_portfolio, pd.DataFrame(final_row, index=[0])], ignore_index=True)
+
+    # Graphing the performance of the strongest portfolios and the benchmark
+    return strongest_portfolios, back_testing_portfolios
+
+def fixed_start(investment_size, num_stocks, flat_fee, fee_per_share, tickers):
+    weighted_list, stock_data = rank(tickers)
+
+    best_stocks = []
+    for i in range(num_stocks):
+        best_stocks += [weighted_list[i]["name"]]
+    filtered_stocks = []
+    for stock in best_stocks:
+        for stock_stats in stock_data:
+            if (stock == stock_stats["name"]):
+                filtered_stocks += [stock_stats]
+    for stock in filtered_stocks:
+        stock["price_history"].index = stock["price_history"].index.strftime('%Y-%m-%d')
+    
+    best_portfolios, back_testing_portfolios = make_fixed_portfolios(filtered_stocks, investment_size, flat_fee, fee_per_share, num_stocks)
     return best_portfolios, back_testing_portfolios
 
 @st.cache_data

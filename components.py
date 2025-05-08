@@ -26,7 +26,7 @@ def render_header():
         '>
             <div style='display: flex; align-items: center; justify-content: center; gap: 1rem;'>
                 <img src="data:image/png;base64,{logo_base64}" width="100" style='margin: 0;' />
-                <h1 style='color: white; margin: 0;'>PortfolioGo</h1>
+                <h1 style='color: white; margin: 0;'>PortfolioGo!</h1>
             </div>
         </div>
         <br>

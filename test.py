@@ -3,6 +3,7 @@ import numpy as np
 import yfinance as yf
 # import matplotlib.pyplot as plt
 import random
+import helpers as hp
 
 print("hello")
 ticker = yf.Ticker('MSFT')
@@ -33,3 +34,5 @@ for ticker in fixed_tickers:
 print(fixed_names)
 print(len(fixed_names))
 print(len(fixed_tickers))
+
+print(hp.get_rf())

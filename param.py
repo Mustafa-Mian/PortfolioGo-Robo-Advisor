@@ -36,7 +36,12 @@ if "total_investment" not in st.session_state:
 st.markdown("---")
 fee_box = st.checkbox("I have transaction fees", value=False)
 if fee_box:
-    flat_fees = st.number_input("Flat Transaction Fee per Purchase ($)", min_value=0.0, step=1.0, value=9.99)
+    st.write("""
+    Enter your platform's transaction fees:
+    - PortfolioGo will always use the cheaper type of fee **per stock**.
+    """)
+    st.badge("If your trading platform is charging both flat and per share fees, consider swtiching to another provider  :/", icon=":material/warning:", color="red")
+    flat_fees = st.number_input("Flat Fee per Stock Purchase ($)", min_value=0.0, step=0.01, value=9.99)
     per_share_fees = st.number_input("Fee per Share ($)", min_value=0.0, step=0.01, value=0.00)
 st.markdown("---")
 
@@ -67,36 +72,41 @@ else:
             # Show max slider only if valid range exists
             if min_stocks + 1 == stock_count:
                 st.info(f"The only possible range is {min_stocks} to {stock_count}. PortfolioGo will use a minimum of {min_stocks} and a maximum of {stock_count}.", icon=":material/info:")
+                st.session_state.max_stocks = stock_count
             else:
                 max_stocks = st.slider("Maximum Number of Stocks", min_value=min_stocks + 1, max_value=stock_count, value=stock_count)
 
 # --- Continue Button ---
 st.markdown("---")
-if st.button("✅ Proceed to Optimization"):
+if investment_size >= 1000:
+    if investment_size >= 1000 and st.button("✅ Proceed to Optimization"):
 
-    # Save total investment
-    st.session_state.total_investment = investment_size
+        # Save total investment
+        st.session_state.total_investment = investment_size
 
-    # Save fee information
-    if fee_box:
-        st.session_state.flat_fee = flat_fees
-        st.session_state.fee_per_share = per_share_fees
-    else:
-        st.session_state.flat_fee = 0.0
-        st.session_state.fee_per_share = 0.0
+        # Save fee information
+        if fee_box:
+            st.session_state.flat_fee = flat_fees
+            st.session_state.fee_per_share = per_share_fees
+        else:
+            st.session_state.flat_fee = 0.0
+            st.session_state.fee_per_share = 0.0
 
-    # Save stock count preferences
-    if len(st.session_state.ticker_file) == 10:
-        st.session_state.min_stocks = 10
-        st.session_state.max_stocks = 10
-    elif fixed:
-        st.session_state.min_stocks = num_stocks
-        st.session_state.max_stocks = num_stocks
-    else:
-        st.session_state.min_stocks = min_stocks
-        st.session_state.max_stocks = max_stocks
+        # Save stock count preferences
+        if len(st.session_state.ticker_file) == 10:
+            st.session_state.min_stocks = 10
+            st.session_state.max_stocks = 10
+        elif fixed:
+            st.session_state.min_stocks = num_stocks
+            st.session_state.max_stocks = num_stocks
+        elif min_stocks + 1 == stock_count:
+            st.session_state.min_stocks = min_stocks
+            st.session_state.max_stocks = stock_count
+        else:
+            st.session_state.min_stocks = min_stocks
+            st.session_state.max_stocks = max_stocks
 
-    st.success("Running optimization (backend logic goes here)...")
-    st.switch_page('result.py')
+        st.success("Running optimization (backend logic goes here)...")
+        st.switch_page('result.py')
 
 render_footer()

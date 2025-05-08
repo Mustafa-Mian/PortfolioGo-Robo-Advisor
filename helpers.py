@@ -16,8 +16,8 @@ def get_rf():
     # Get the most recent closing value
     risk_free_rate = us_debt.fast_info.last_price
     risk_free_rate /= 100
-
-    return risk_free_rate
+    daily_rf = (1 + risk_free_rate) ** (1 / 252) - 1
+    return daily_rf, risk_free_rate
 
 def get_exchange_rate():
     cadusd = yf.Ticker('CADUSD=x')
@@ -155,3 +155,22 @@ def get_best_port(best_portfolios, max_stocks, min_stocks):
     Portfolio_Final.index = Portfolio_Final.index + 1
 
     return Portfolio_Final, best_index
+
+def get_best_port_fixed(best_portfolio, num_stocks):
+    best_port = best_portfolio.copy()
+    
+    Portfolio_Final = pd.DataFrame()
+    for i in range(len(best_port) - 1):
+        new_row = {
+            'Ticker': best_port["Name"].iloc[i],
+            'Price': best_port["price"].iloc[i],
+            'Currency': 'USD',
+            'Shares': best_port["shares"].iloc[i],
+            'Value': best_port["spent"].iloc[i] - best_port["transaction fees"].iloc[i],
+            'Weight': best_port["weight"].iloc[i],
+        }
+        Portfolio_Final = pd.concat([Portfolio_Final, pd.DataFrame(new_row, index=[0])], ignore_index=True)
+
+    Portfolio_Final.index = Portfolio_Final.index + 1
+
+    return Portfolio_Final
