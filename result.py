@@ -91,7 +91,7 @@ display_beta = np.round(Portfolio_with_stats['weighted beta'].iloc[-1], 3)
 daily_rf, annual_rf = hp.get_rf()
 annual_rf = np.round(annual_rf * 100, 2)
 col1.metric("Annualized Return", str(display_return) + '%', str(np.round(display_return - annualized_sp_return, 2)) + "% compared to S&P 500")
-col2.metric("Portfolio Beta", str(display_beta), str(np.round(display_beta - 1, 3)) + " compared to S&P 500")
+col2.metric("Portfolio Beta", str(display_beta), str(np.round(display_beta - 1, 3)) + " compared to Market")
 col3.metric("Sharpe Ratio", str(np.round(Portfolio_with_stats['Sharpe Ratio'].iloc[-1], 2)), "With a risk-free rate of " + str(annual_rf) + "%")
 
 st.badge("The Annualized Return is the expected return of the portfolio over a year, based on data from Nov 2023 - Mar 2025", icon=":material/finance:", color="green")
