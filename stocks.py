@@ -45,7 +45,7 @@ st.subheader("Welcome to PortfolioGo!", divider='grey')
 container = st.container(border=True)
 container.write("Our goal is to make you a strong, investment-worthy portfolio. You provide the stocks, we'll handle the analysis.")
 container.write('Please enter the stocks and constraints for your custom-built portfolio.')
-container.badge("Lets go!", icon=":material/rocket_launch:", color="green")
+container.badge("Let's go!", icon=":material/rocket_launch:", color="green")
 
 use_predefined_now = st.checkbox(
     "Can't think of enough stocks? Click here and we'll use a pre-defined set to show you how PortfolioGo works. (Note selecting this option will overwrite any previously written tickers)",
