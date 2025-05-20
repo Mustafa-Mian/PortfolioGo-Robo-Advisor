@@ -4,6 +4,7 @@ import yfinance as yf
 import helpers as hp
 import streamlit as st
 
+@st.cache_data(ttl=300)  # cache for 5 minutes
 def clean_data(tickers):
     tickers.drop_duplicates(inplace=True)
     
@@ -39,7 +40,7 @@ def clean_data(tickers):
     
     return filtered_stocks.reset_index(drop=True)
 
-
+@st.cache_data(ttl=300)  # cache for 5 minutes
 def rank(ticker_file):
     # Initialize the lists
     stock_data = []
